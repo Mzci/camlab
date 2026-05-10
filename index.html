@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Camera Lab</title>
+
+<style>
+body{
+  margin:0;
+  font-family:system-ui;
+  background:#0f172a;
+  color:white;
+  display:flex;
+  height:100vh;
+}
+
+/* layout */
+#left{
+  width:50%;
+  display:flex;
+  flex-direction:column;
+  border-right:1px solid #1e293b;
+}
+
+#right{
+  width:50%;
+  display:flex;
+  flex-direction:column;
+}
+
+/* cámara */
+#video{
+  display:none;
+}
+
+#canvas{
+  width:100%;
+  height:50%;
+  background:black;
+}
+
+/* editor */
+#editor{
+  width:100%;
+  height:50%;
+  background:#020617;
+  color:#38bdf8;
+  border:none;
+  outline:none;
+  padding:10px;
+  font-family:monospace;
+  resize:none;
+}
+
+/* consola */
+#console{
+  flex:1;
+  background:#020617;
+  overflow:auto;
+  padding:10px;
+  font-family:monospace;
+}
+
+#inputBox{
+  border:none;
+  outline:none;
+  padding:10px;
+  background:#0f172a;
+  color:white;
+  border-top:1px solid #1e293b;
+}
+</style>
+</head>
+
+<body>
+
+<div id="left">
+  <canvas id="canvas"></canvas>
+  <textarea id="editor">
+// ejemplo base:
+
+const color = api.getPixel(100,100);
+api.log("Color:", color);
+
+if(color.r > 200){
+  api.drawCircle(100,100);
+}
+  </textarea>
+</div>
+
+<div id="right">
+  <div id="console"></div>
+  <input id="inputBox" placeholder="input... (enter)">
+</div>
+
+<video id="video" autoplay></video>
+
+<script>
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const editor = document.getElementById("editor");
+const consoleDiv = document.getElementById("console");
+const inputBox = document.getElementById("inputBox");
+
+canvas.width = 640;
+canvas.height = 480;
+
+/* =======================
+   🎥 WEBCAM
+======================= */
+navigator.mediaDevices.getUserMedia({ video: true })
+.then(stream => {
+  video.srcObject = stream;
+});
+
+/* =======================
+   🖥️ CONSOLA
+======================= */
+function log(...msg){
+  consoleDiv.innerHTML += "<div>> " + msg.join(" ") + "</div>";
+  consoleDiv.scrollTop = consoleDiv.scrollHeight;
+}
+
+/* =======================
+   ⌨ INPUT
+======================= */
+let inputResolve = null;
+
+inputBox.addEventListener("keydown", e=>{
+  if(e.key === "Enter"){
+    if(inputResolve){
+      inputResolve(inputBox.value);
+      inputBox.value = "";
+    }
+  }
+});
+
+function input(text){
+  log(text);
+  return new Promise(res=>{
+    inputResolve = res;
+  });
+}
+
+/* =======================
+   🎨 PIXELES
+======================= */
+function getPixel(x,y){
+  const d = ctx.getImageData(x,y,1,1).data;
+  return {r:d[0], g:d[1], b:d[2]};
+}
+
+function scanArea(x,y,w,h){
+  return ctx.getImageData(x,y,w,h).data;
+}
+
+/* =======================
+   ✏️ DIBUJO
+======================= */
+function drawCircle(x,y){
+  ctx.fillStyle = "red";
+  ctx.beginPath();
+  ctx.arc(x,y,10,0,Math.PI*2);
+  ctx.fill();
+}
+
+/* =======================
+   🧠 API DEL USUARIO
+======================= */
+const api = {
+  getPixel,
+  scanArea,
+  drawCircle,
+  log,
+  input
+};
+
+/* =======================
+   ⚙ EJECUTOR
+======================= */
+function runUserCode(){
+  try{
+    const code = editor.value;
+    const func = new Function("api", code);
+    func(api);
+  }catch(e){
+    log("ERROR:", e.message);
+  }
+}
+
+/* =======================
+   🔁 LOOP
+======================= */
+function loop(){
+  ctx.drawImage(video,0,0,canvas.width,canvas.height);
+
+  runUserCode();
+
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+
+</body>
+</html>
