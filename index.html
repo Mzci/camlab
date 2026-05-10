@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Camera Lab</title>
+<title>Camera Lab | 1.0.1</title>
 
 <style>
 body{
@@ -28,11 +28,30 @@ body{
   flex-direction:column;
 }
 
-/* cámara */
-#video{
-  display:none;
+/* top bar */
+#topbar{
+  display:flex;
+  gap:10px;
+  padding:10px;
+  background:#020617;
+  border-bottom:1px solid #1e293b;
+  align-items:center;
 }
 
+button{
+  background:#1e293b;
+  color:white;
+  border:none;
+  padding:8px 12px;
+  cursor:pointer;
+  border-radius:6px;
+}
+
+button:hover{
+  background:#334155;
+}
+
+/* cámara */
 #canvas{
   width:100%;
   height:50%;
@@ -61,6 +80,7 @@ body{
   font-family:monospace;
 }
 
+/* input */
 #inputBox{
   border:none;
   outline:none;
@@ -69,20 +89,46 @@ body{
   color:white;
   border-top:1px solid #1e293b;
 }
+
+/* ayuda */
+#help{
+  position:absolute;
+  top:50px;
+  right:20px;
+  width:300px;
+  max-height:400px;
+  overflow:auto;
+  background:#020617;
+  border:1px solid #1e293b;
+  padding:10px;
+  display:none;
+}
 </style>
 </head>
 
 <body>
 
 <div id="left">
+  <div id="topbar">
+    <button id="runBtn">▶ RUN</button>
+    <button id="stopBtn">⏹ STOP</button>
+
+    🔥 Potencia:
+    <input type="range" id="power" min="1" max="60" value="60">
+
+    <button id="helpBtn">❓</button>
+  </div>
+
   <canvas id="canvas"></canvas>
+
   <textarea id="editor">
-// ejemplo base:
+// ejemplo:
 
-const color = api.getPixel(100,100);
-api.log("Color:", color);
+const c = api.getPixel(100,100);
 
-if(color.r > 200){
+api.log(c);
+
+if(c.r > 200){
   api.drawCircle(100,100);
 }
   </textarea>
@@ -93,7 +139,34 @@ if(color.r > 200){
   <input id="inputBox" placeholder="input... (enter)">
 </div>
 
-<video id="video" autoplay></video>
+<div id="help">
+<h3>📘 API</h3>
+
+<b>api.getPixel(x,y)</b><br>
+Devuelve {r,g,b}<br><br>
+
+<b>api.scanArea(x,y,w,h)</b><br>
+Devuelve array de pixeles<br><br>
+
+<b>api.drawCircle(x,y)</b><br>
+Dibuja un círculo<br><br>
+
+<b>api.log(...)</b><br>
+Imprime en consola<br><br>
+
+<b>await api.input(text)</b><br>
+Pide input del usuario<br><br>
+
+<hr>
+
+<b>Tips:</b><br>
+- Se ejecuta en loop<br>
+- Podés usar condiciones<br>
+- Evitá loops infinitos<br>
+
+</div>
+
+<video id="video" autoplay style="display:none;"></video>
 
 <script>
 const video = document.getElementById("video");
@@ -103,6 +176,13 @@ const editor = document.getElementById("editor");
 const consoleDiv = document.getElementById("console");
 const inputBox = document.getElementById("inputBox");
 
+const runBtn = document.getElementById("runBtn");
+const stopBtn = document.getElementById("stopBtn");
+const powerSlider = document.getElementById("power");
+
+const helpBtn = document.getElementById("helpBtn");
+const helpDiv = document.getElementById("help");
+
 canvas.width = 640;
 canvas.height = 480;
 
@@ -110,9 +190,7 @@ canvas.height = 480;
    🎥 WEBCAM
 ======================= */
 navigator.mediaDevices.getUserMedia({ video: true })
-.then(stream => {
-  video.srcObject = stream;
-});
+.then(stream => video.srcObject = stream);
 
 /* =======================
    🖥️ CONSOLA
@@ -166,7 +244,7 @@ function drawCircle(x,y){
 }
 
 /* =======================
-   🧠 API DEL USUARIO
+   🧠 API
 ======================= */
 const api = {
   getPixel,
@@ -179,10 +257,11 @@ const api = {
 /* =======================
    ⚙ EJECUTOR
 ======================= */
+let running = false;
+
 function runUserCode(){
   try{
-    const code = editor.value;
-    const func = new Function("api", code);
+    const func = new Function("api", editor.value);
     func(api);
   }catch(e){
     log("ERROR:", e.message);
@@ -190,17 +269,48 @@ function runUserCode(){
 }
 
 /* =======================
-   🔁 LOOP
+   🔁 LOOP CONTROLADO
 ======================= */
-function loop(){
-  ctx.drawImage(video,0,0,canvas.width,canvas.height);
+let lastTime = 0;
 
-  runUserCode();
+function loop(time){
+  if(!running) return;
+
+  const power = powerSlider.value; // 1 a 60 FPS
+  const interval = 1000 / power;
+
+  if(time - lastTime > interval){
+    lastTime = time;
+
+    ctx.drawImage(video,0,0,canvas.width,canvas.height);
+
+    runUserCode();
+  }
 
   requestAnimationFrame(loop);
 }
 
-loop();
+/* =======================
+   🎮 CONTROLES
+======================= */
+runBtn.onclick = ()=>{
+  if(!running){
+    running = true;
+    loop(0);
+  }
+};
+
+stopBtn.onclick = ()=>{
+  running = false;
+};
+
+/* =======================
+   ❓ HELP
+======================= */
+helpBtn.onclick = ()=>{
+  helpDiv.style.display =
+    helpDiv.style.display === "none" ? "block" : "none";
+};
 </script>
 
 </body>
